@@ -1,0 +1,237 @@
+//找PORT
+C:\Users\david\Desktop\NXP\sdphost.exe  -t 50000 -p COM6,115200 -j -- error-status
+C:\Users\Gino.SYNERTER\Desktop\Swift_init\david_nxp\sdphost.exe  -t 50000 -p COM3,115200 -j -- error-status
+//跳轉前置工作
+C:\Users\david\Desktop\NXP\sdphost.exe  -t 50000 -p COM6,115200 -- write-file 0x20208200 C:\Users\david\Desktop\NXP\ivt_flashloader.bin
+C:\Users\david\Desktop\NXP\sdphost.exe  -t 50000 -p COM6,115200 -- jump-address 0x20208200
+//檢查是否跳轉成功
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -- get-property 1
+
+
+//讀UUID0
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -- efuse-read-once 0x1
+//讀UUID1
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -- efuse-read-once 0x2
+//Cfg0
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -- efuse-read-once 0x5
+//Cfg1
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -- efuse-read-once 0x6
+//Conf0
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -- efuse-read-once 0x2d
+/*初始時
+Cfg0的回傳值應為Response word 2 = 0 (0x0)
+Cfg1的回傳值應為Response word 2 = 16 (0x0)
+Conf0的回傳值應為Response word 2 = 64 0x40 */
+
+/*初始參數正確後 開始修改NXP設定*/
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -- efuse-program-once 6 00000010
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -- efuse-program-once 45 07000000
+
+//Cfg1
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -- efuse-read-once 0x6
+//Conf0
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -- efuse-read-once 0x2d
+/* 檢查修改是否成功
+Cfg1的回傳值應為0x10
+Conf0的回傳值應為0x07000040 */
+
+//配置FLASH
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -j -- fill-memory 0x20202000 4 0xc0000207 word
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -j  -- configure-memory 9 0x20202000
+//讀FASH
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -j -- read-memory 0x60000000 40960 C:\Users\david\Desktop\NXP\flexspi.dat
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -j -- flash-erase-region 1610612736 40960 9
+C:\Users\david\Desktop\NXP\blhost.exe -p COM6 -j -- write-memory 0x60000000 C:\Users\david\Desktop\NXP\hello_world_20210104.bin 9
+
+
+
+
+//--------------------------------------------------------------------------------//
+usage: C:\Users\david\Desktop\NXP\blhost.exe [-?|--help] [-v|--version]
+                                             [-p|--port <name>[,<speed>]]
+                                             [-b|--buspal spi[,<speed>,<polarity>,<phase>,lsb|msb] | i2c[,<address>,<speed>] | can[,<speed>,<txid>,<rxid>]]
+                                             [-u|--usb [[[<vid>,]<pid>]]]
+                                             [-V|--verbose] [-d|--debug]
+                                             [-j|--json] [-n|--noping]
+                                             [-t|--timeout <ms>]
+                                             -- command <args...>
+
+Options:
+  -?/--help                    Show this help
+  -v/--version                 Display tool version
+  -p/--port <name>[,<speed>]   Connect to target over UART. Specify COM port
+                               and optionally baud rate
+                                 (default=57600)
+                                 If -b, then port is BusPal port
+  -b/--buspal spi[,<speed>,<polarity>,<phase>,lsb|msb] |
+              i2c[,<address>,<speed>]
+              can[,<speed>,<txid>,<rxid>]
+                               Use SPI or I2C for BusPal<-->Target link
+                               All parameters between square brackets are
+                               optional, but preceding parameters must be
+                               present or marked with a comma.
+                               (ex. -b spi,1000,0,1) (ex. -b spi,1000,,lsb)
+                                 spi:  speed(KHz),
+                                       polarity(0=active_high | 1=active_low),
+                                       phase(0=rising_edge | 1=falling_edge),
+                                       "lsb" | "msb"
+                                       (default=100,1,1,msb)
+                                 i2c:  address(7-bit hex), speed(KHz)
+                                       (default=0x10,100)
+                                 can:  speed(0=125K | 1=250K | 2=500K | 4=1M),
+                                       txid (11 bits ID),
+                                       rxid (11 bits ID)
+                                       (default=4,0x321,0x123)
+  -u/--usb [[[<vid>,]<pid>] | [<path>]]
+                               Connect to target over USB HID device denoted by
+                               vid/pid (default=0x15a2,0x0073) or device path
+  -V/--verbose                 Print extra detailed log information
+  -d/--debug                   Print really detailed log information
+  -j/--json                    Print output in JSON format to aid automation.
+  -n/--noping                  Skip the initial ping of a serial target
+  -t/--timeout <ms>            Set packet timeout in milliseconds
+                                 (default=5000)
+
+Memory ID:
+  Internal Memory              Device internal memory space
+    0                            Internal Memory
+                                 (Default selected memory)
+    16 (0x10)                    Execute-only region on internal flash
+                                 (Only used for flash-erase-all)
+  Mapped External Memory       The memories that are remapped to internal space,
+                               and must be accessed by internal addresses.
+                               (IDs in this group are only used for flash-erase-all and
+                               configure-memory, and ignored by write-memory, read-memory,
+                               flash-erase-region and flash-image(use default 0))
+    1                            QuadSPI Memory
+    8                            SEMC NOR Memory
+    9                            FlexSPI NOR Memory
+    10 (0xa)                     SPIFI NOR Memory
+  Unmapped External Memory     Memories which cannot be remapped to internal space,
+                               and only can be accessed by memories' addresses.
+                               (Must be specified for all commands with <memoryId> argument)
+    256 (0x100)                  SEMC NAND Memory
+    257 (0x101)                  SPI NAND Memory
+    272 (0x110)                  SPI NOR/EEPROM Memory
+    273 (0x111)                  I2C NOR/EEPROM Memory
+    288 (0x120)                  uSDHC SD Memory
+    289 (0x121)                  uSDHC MMC Memory
+
+** Note that not all memories are supported on all platforms.
+
+Command:
+  reset                        Reset the chip
+  get-property <tag> [<memoryId> | <index>]
+    1                          Bootloader version
+    2                          Available peripherals
+    3                          Start of program flash
+    4                          Size of program flash
+    5                          Size of flash sector
+    6                          Blocks in flash array
+    7                          Available commands
+    8                          CRC check status
+    10                         Verify Writes flag
+    11                         Max supported packet size
+    12                         Reserved regions
+    14                         Start of RAM, <index> is required
+    15                         Size of RAM, <index> is required
+    16                         System device identification
+    17                         Flash security state
+    18                         Unique device identification
+    19                         FAC support flag
+    20                         FAC segment size
+    21                         FAC segment count
+    22                         Read margin level of program flash
+    23                         QuadSpi initialization status
+    24                         Target version
+    25                         External Memory Attrubutes, <memoryId> is required.
+  set-property <tag> <value>
+    10                         Verify Writes flag
+    22                         Read margin level of program flash
+  flash-erase-region <addr> <byte_count> [memory_id]
+                               Erase a region of flash according to [memory_id].
+  flash-erase-all [memory_id]  Erase all flash according to [memory_id],
+                               excluding protected regions.
+  flash-erase-all-unsecure     Erase all internal flash, including protected regions
+  read-memory <addr> <byte_count> [<file>] [memory_id]
+                               Read memory according to [memory_id] and write to file
+                               or stdout if no file specified
+  write-memory <addr> [<file>[,byte_count]| {{<hex-data>}}] [memory_id]
+                               Write memory according to [memory_id] from file
+                               or string of hex values,
+                               e.g. data.bin (writes entire file)
+                               e.g. data.bin 8 (writes first 8 bytes from file)
+                               e.g. "{{11 22 33 44}}" (w/quotes)
+                               e.g. {{11223344}} (no spaces)
+  fill-memory <addr> <byte_count> <pattern> [word | short | byte]
+                               Fill memory with pattern; size is
+                               word (default), short or byte
+  receive-sb-file <file>       Receive SB file
+  execute <addr> <arg> <stackpointer>
+                               Execute at address with arg and stack pointer
+  call <addr> <arg>            Call address with arg
+  flash-security-disable <key> Flash Security Disable <8-byte-hex-key>,
+                               e.g. 0102030405060708
+  flash-program-once <index> <byte_count> <data> [LSB | MSB]
+                               Program Flash Program Once Field
+                               <data> is 4 or 8-byte-hex according to <byte_count>
+                               <data> output sequence is specified by LSB(Default) or MSB
+                               The output sequence of data "1234" is "4,3,2,1" by default,
+                               while is "1,2,3,4" if MSB is specified
+                               e.g. 0 4 12345678 MSB
+  flash-read-once <index> <byte_count>
+                               Read Flash Program Once Field
+  flash-read-resource <addr> <byte_count> <option> [<file>]
+                               Read Resource from special-purpose
+                               non-volatile memory and write to file
+                               or stdout if no file specified
+  configure-memory <memory_id> <internal_addr>
+                               Apply configuration block at internal memory address
+                               <internal_addr> to memory with ID <memory_id>
+  reliable-update <addr>
+                               Copy backup app from address to main app region
+                               or swap flash using indicator address
+  key-provisioning <operation> [arguments...]
+                               <enroll>
+                                   Key provisioning enroll. No argument for this operation
+                               <set_user_key> <type> <file>[,<size>]
+                                   Send the user key specified by <type> to bootloader. <file> is
+                                   the binary file containing user key plaintext. If <size> is not
+                                   specified, the entire <file> will be sent. Otherwise, only send
+                                   the first <size> bytes
+                               <set_key> <type> <size>
+                                   Generate <size> bytes of the key specified by <type>
+                               <write_key_nonvolatile> [memoryID]
+                                   Write the key to a nonvolatile memory
+                               <read_key_nonvolatile> [memoryID]
+                                   Load the key from a nonvolatile memory to bootloader
+                               <write_key_store> <file>[,<size>]
+                                   Send the key store to bootloader. <file> is the binary file
+                                   containing key store. If <size> is not specified, the entire
+                                   <file> will be sent. Otherwise, only send the first <size> bytes
+                               <read_key_store> <file>
+                                   Read the key store from bootloader to host(PC). <file> is the
+                                   binary file to store the key store
+  flash-image <file> [erase] [memory_id]
+                               Write a formated image <file> to memory with ID
+                               <memory_id>. Supported file types: SRecord
+                               (.srec and .s19) and HEX (.hex). Flash is erased
+                               before writing if [erase]=erase. The erase unit
+                               size depends on the target and the minimum erase
+                               unit size is 1K.
+  list-memory                  List all on-chip Flash and RAM regions, and off-chip
+                               memories, supported by current device.
+                               Only the configured off-chip memory will be list.
+  efuse-program-once <addr> <data> [nolock/lock]
+                               Program one word of OCOTP Field
+                               <addr> is ADDR of OTP word, not the shadowed memory address.
+                               <data> is hex digits without prefix '0x'
+  efuse-read-once <addr>
+                               Read one word of OCOTP Field
+                               <addr> is ADDR of OTP word, not the shadowed memory address.
+  generate-key-blob <dek_file> <blob_file>
+                               Generate the Blob for given Dek Key
+                               <dek_file> - input, a binary Dek Key (128 Bits) generated by CST tool.
+                               <blob_file> - output, a generated blob (72 Bytes) in binary format.
+
+** Note that not all commands/properties are supported on all platforms.
